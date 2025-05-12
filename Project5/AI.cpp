@@ -591,25 +591,32 @@ void processMove(ChessBoard *board, int fromX, int fromY, int toX, int toY, bool
             ChessBoard tempBoard = *board;
 
             // 绘制升变选择界面
+            const int winX = 250, winY = 250;
+            const int winW = 300, winH = 300; // 增加窗口高度以容纳更多按钮
             setfillcolor(RGB(240, 240, 240));
-            fillrectangle(250, 250, 550, 450);
+            fillrectangle(winX, winY, winX + winW, winY + winH);
+
             settextstyle(20, 0, _T("宋体"));
             settextcolor(black);
-            outtextxy(280, 260, _T("请选择兵升变的棋子类型:"));
+            outtextxy(winX + (winW - textwidth(_T("请选择兵升变的棋子类型:"))) / 2, winY + 20, _T("请选择兵升变的棋子类型:"));
 
-            // 绘制选项按钮
-            setfillcolor(RGB(200, 200, 200));
-            fillrectangle(270, 300, 530, 340); // 后
-            outtextxy(280, 310, _T("皇后 (Q)"));
+            // 按钮设置
+            const int btnWidth = 260, btnHeight = 40;
+            int btnX = winX + (winW - btnWidth) / 2;
 
-            fillrectangle(270, 350, 530, 390); // 车
-            outtextxy(280, 360, _T("车 (R)"));
+            // 按钮文本与位置
+            const TCHAR* buttonText[] = { _T("皇后 (Q)"), _T("车 (R)"), _T("象 (B)"), _T("马 (N)") };
+            int btnY = winY + 50; // 初始按钮Y位置
 
-            fillrectangle(270, 400, 530, 440); // 象
-            outtextxy(280, 410, _T("象 (B)"));
-
-            fillrectangle(270, 450, 530, 490); // 马
-            outtextxy(280, 460, _T("马 (N)"));
+            // 绘制四个按钮
+            for (int i = 0; i < 4; i++)
+            {
+                fillrectangle(btnX, btnY + i * (btnHeight + 10), btnX + btnWidth, btnY + (i + 1) * btnHeight + i * 10);
+                int textW = textwidth(buttonText[i]);
+                int textX = btnX + (btnWidth - textW) / 2; // 水平居中
+                int textY = btnY + i * (btnHeight + 10) + (btnHeight - textheight(buttonText[i])) / 2; // 垂直居中
+                outtextxy(textX, textY, buttonText[i]);
+            }
 
             // 等待玩家选择
             bool selected = false;
@@ -622,24 +629,24 @@ void processMove(ChessBoard *board, int fromX, int fromY, int toX, int toY, bool
                     MOUSEMSG msg = GetMouseMsg();
                     if (msg.uMsg == WM_LBUTTONDOWN)
                     {
-                        if (msg.x >= 270 && msg.x <= 530)
+                        if (msg.x >= btnX && msg.x <= btnX + btnWidth)
                         {
-                            if (msg.y >= 300 && msg.y <= 340)
+                            if (msg.y >= btnY && msg.y <= btnY + btnHeight)  // 皇后按钮
                             {
                                 promoteTo = QUEEN;
                                 selected = true;
                             }
-                            else if (msg.y >= 350 && msg.y <= 390)
+                            else if (msg.y >= btnY + (btnHeight + 10) && msg.y <= btnY + (btnHeight + 10) + btnHeight)  // 车按钮
                             {
                                 promoteTo = ROOK;
                                 selected = true;
                             }
-                            else if (msg.y >= 400 && msg.y <= 440)
+                            else if (msg.y >= btnY + 2 * (btnHeight + 10) && msg.y <= btnY + 2 * (btnHeight + 10) + btnHeight)  // 象按钮
                             {
                                 promoteTo = BISHOP;
                                 selected = true;
                             }
-                            else if (msg.y >= 450 && msg.y <= 490)
+                            else if (msg.y >= btnY + 3 * (btnHeight + 10) && msg.y <= btnY + 3 * (btnHeight + 10) + btnHeight)  // 马按钮
                             {
                                 promoteTo = KNIGHT;
                                 selected = true;
@@ -653,12 +660,12 @@ void processMove(ChessBoard *board, int fromX, int fromY, int toX, int toY, bool
             board->board[toX][toY].type = promoteTo;
 
             // 更新棋子位置记录 - 从兵的位置列表中移除
-            auto &myPieces = (srcPiece->color == white) ? board->whitePieces : board->blackPieces;
+            auto& myPieces = (srcPiece->color == white) ? board->whitePieces : board->blackPieces;
             myPieces.erase(
                 std::remove(myPieces.begin(), myPieces.end(), std::make_pair(toX, toY)),
                 myPieces.end());
             // 添加新棋子到位置列表
-            myPieces.push_back({toX, toY});
+            myPieces.push_back({ toX, toY });
             // 设置重绘标志
             board->needRedraw = true;
 
@@ -671,6 +678,7 @@ void processMove(ChessBoard *board, int fromX, int fromY, int toX, int toY, bool
             board->board[toX][toY].type = QUEEN;
         }
     }
+
 
     // 更新上次兵跳信息
     if (srcPiece->type == PAWN && abs(fromX - toX) == 2)
@@ -1030,123 +1038,110 @@ void undoMove(ChessBoard *board)
     }
 }
 
-void showNotation(ChessBoard *board)
+void showNotation(ChessBoard* board)
 {
     if (!board->notation)
         return;
 
-    // 1. 保存当前界面状态
+    // 1. 保存当前画面
     IMAGE tempBuffer;
     getimage(&tempBuffer, 0, 0, getwidth(), getheight());
 
-    // 2. 显式设置中文字体（避免被其他代码覆盖）
+    // 2. 设置字体（宋体 20 号）并保存原字体
     LOGFONT oldFont;
-    gettextstyle(&oldFont); // 保存原字体
+    gettextstyle(&oldFont);
     LOGFONT newFont = oldFont;
     _tcscpy(newFont.lfFaceName, _T("宋体"));
     newFont.lfHeight = 20;
     settextstyle(&newFont);
 
-    // 3. 绘制记录窗口
-    setfillcolor(RGB(240, 240, 240));
-    fillrectangle(100, 100, 700, 600);
-    settextcolor(BLACK);
-    outtextxy(300, 110, _T("棋谱记录"));
+    // 3. 绘制背景与标题
+    const int winX = 100, winY = 100;
+    const int winW = 600, winH = 520;
+    setfillcolor(RGB(245, 245, 245));
+    fillrectangle(winX, winY, winX + winW, winY + winH);
 
-    // 4. 显示棋谱（修复字符运算和变量引用）
+    // 标题
+    const TCHAR title[] = _T("棋谱记录");
+    settextcolor(RGB(30, 30, 30));
+    int titleW = textwidth(title), titleH = textheight(title);
+    outtextxy(winX + (winW - titleW) / 2, winY + 10, title);
+
+    // 4. 显示棋谱列表（最多 20 条，支持居中）
     int start = max(0, board->notation->currentMove - 20);
-    int yPos = 150;
-    int maxX = getwidth(); // 获取窗口宽度
+    int lineHeight = 28;
+    int listY = winY + 50;
+    const int maxLines = 16;  // 显示最大行数
+    int listHeight = maxLines * lineHeight;
+    settextcolor(BLACK);
+    // 创建滚动区域（最大显示16行，支持滚动）
+    const int scrollHeight = winH - 80;  // 除去顶部标题区域和底部按钮区域的高度
+    int visibleLines = min(board->notation->currentMove - start, maxLines);
 
-    for (int i = start; i < board->notation->currentMove; i++)
+    for (int i = start; i < start + visibleLines; i++)
     {
-        MoveRecord move = board->notation->moves[i];
-        TCHAR moveText[50];
-        wchar_t fromCol = L'a' + (move.fromY % 8);
-        wchar_t toCol = L'a' + (move.toY % 8);
-        _stprintf(
-            moveText,
-            _T("%d. %s %c%d → %c%d"),
+        MoveRecord mv = board->notation->moves[i];
+        // 格式化走法：序号 + 中文棋子名 + 坐标
+        TCHAR buf[64];
+        wchar_t fc = L'a' + (mv.fromY % 8), fr = L'1' + (7 - mv.fromX);
+        wchar_t tc = L'a' + (mv.toY % 8), tr = L'1' + (7 - mv.toX);
+        _stprintf(buf, _T("%2d. %s %c%c→%c%c"),
             i + 1,
-            getPieceNameCN(move.movedPiece),
-            fromCol,
-            8 - move.fromX,
-            toCol,
-            8 - move.toX);
+            getPieceNameCN(mv.movedPiece),
+            fc, fr, tc, tr);
 
-        int textWidth = textwidth(moveText);
-        int textX = (maxX - textWidth) / 2;
-        outtextxy(textX, yPos, moveText);
-
-        yPos += 30;
-
-        // 如果yPos超出了窗口高度，则停止绘制
-        if (yPos > 550)
-            break;
+        // 计算文本宽度并居中显示
+        int textW = textwidth(buf);
+        int textX = winX + (winW - textW) / 2;
+        int textY = listY + (i - start) * lineHeight;
+        outtextxy(textX, textY, buf);
     }
 
-    // int start = max(0, board->notation->currentMove - 20);
-    // int yPos = 150;
-    // for (int i = start; i < board->notation->currentMove; i++)
-    // {
-    //     MoveRecord move = board->notation->moves[i];
-    //     TCHAR moveText[50];
-    //     wchar_t fromCol = L'a' + (move.fromY % 8); // 安全计算列字符
-    //     wchar_t toCol = L'a' + (move.toY % 8);
-    //     _stprintf(
-    //         moveText,
-    //         _T("%d. %s %c%d → %c%d"),
-    //         i + 1,
-    //         getPieceNameCN(move.movedPiece),
-    //         fromCol,
-    //         8 - move.fromX,
-    //         toCol,
-    //         8 - move.toX // ✅ 正确引用
-    //     );
-    //     outtextxy(120, yPos, moveText);
-    //     yPos += 30;
-    //     if (yPos > 550)
-    //         break;
-    // }
-
-    // 5. 绘制关闭按钮
+    // 5. 绘制“返回”按钮，居中于窗口底部
+    const int btnW = 120, btnH = 40;
+    int btnX = winX + (winW - btnW) / 2;
+    int btnY = winY + winH - btnH - 15;
     setfillcolor(RGB(200, 200, 200));
-    fillrectangle(300, 570, 500, 610);
-    outtextxy(380, 580, _T("返回"));
+    fillrectangle(btnX, btnY, btnX + btnW, btnY + btnH);
 
-    // 6. 处理事件（严格限制作用域）
-    bool exitFlag = false;
-    while (!exitFlag)
+    const TCHAR btnLabel[] = _T("返回");
+    int lblW = textwidth(btnLabel), lblH = textheight(btnLabel);
+    outtextxy(btnX + (btnW - lblW) / 2,
+        btnY + (btnH - lblH) / 2,
+        btnLabel);
+
+    // 6. 事件循环：点击“返回”或窗口消息退出
+    bool exitLoop = false;
+    while (!exitLoop)
     {
         if (MouseHit())
         {
-            MOUSEMSG msg = GetMouseMsg(); // 局部变量
-            if (msg.uMsg == WM_LBUTTONDOWN &&
-                msg.x >= 300 && msg.x <= 500 &&
-                msg.y >= 570 && msg.y <= 610)
+            MOUSEMSG m = GetMouseMsg();
+            if (m.uMsg == WM_LBUTTONDOWN &&
+                m.x >= btnX && m.x <= btnX + btnW &&
+                m.y >= btnY && m.y <= btnY + btnH)
             {
-                exitFlag = true;
+                exitLoop = true;
             }
         }
-
-        // 处理Windows消息队列
-        MSG winMsg;
-        while (PeekMessage(&winMsg, NULL, 0, 0, PM_REMOVE))
+        MSG msg;
+        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
         {
-            if (winMsg.message == WM_QUIT)
-                exitFlag = true;
-            TranslateMessage(&winMsg);
-            DispatchMessage(&winMsg);
+            if (msg.message == WM_QUIT)
+                exitLoop = true;
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
         }
         Sleep(10);
     }
 
-    // 7. 恢复原始界面并释放资源
+    // 7. 恢复画面和字体
     putimage(0, 0, &tempBuffer);
-    settextstyle(&oldFont); // 恢复原字体
+    settextstyle(&oldFont);
 
     board->needRedraw = true;
 }
+
 
 // 新增辅助函数：获取棋子中文名
 const TCHAR *getPieceNameCN(PieceType type)
