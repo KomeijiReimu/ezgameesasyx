@@ -32,9 +32,12 @@ float evaluateBoard(ChessBoard *board, PieceColor color)
 }
 
 // 极小极大算法
+/*
+    ！无限递归！
+*/
 float minimax(ChessBoard *board, int depth, bool isMaximizing, float alpha, float beta)
 {
-    if (depth == 0)
+    if (depth <= 0)
     {
         return evaluateBoard(board, board->ai.color);
     }
